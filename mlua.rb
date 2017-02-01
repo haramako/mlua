@@ -4,6 +4,7 @@
 require_relative 'parser.tab'
 require_relative 'parser'
 
+require_relative 'state'
 require 'pp'
 
 module Mlua
@@ -143,6 +144,9 @@ EOT
 
   end
 
+  class RubyFunction < Struct.new(:proc, :arity)
+  end
+  
   class Function
     attr_reader :insts, :debug_infos, :consts, :protos, :upvals
     
@@ -208,6 +212,7 @@ EOT
       @insts.each.with_index do |inst,i|
         puts "%5d [%3d] %-30s" % [i+1, @debug_infos[i], Inst.inst_to_str(inst)]
       end
+      puts 'upvals ' + @upvals.inspect
       @protos.each do |f|
         puts
         f.dump
@@ -277,7 +282,7 @@ EOT
       when :AB
         [opname, op_a(inst), op_b(inst)]
       when :ABx
-        [opname, op_a(inst), - op_bx(inst) - 1]
+        [opname, op_a(inst), op_bx(inst)]
       when :AsBx
         [opname, op_a(inst), op_sbx(inst)]
       when :ABC
@@ -299,61 +304,6 @@ EOT
     end
   end
 
-  class CallInfo
-  end
-
-  class Closure
-  end
-
-  class State
-    def initialize
-      @pc = 0
-      @stack = []
-      @saved_pc = 0
-    end
-
-    def load_string(str, filename = nil)
-      @chunk = Chunk.new(str, filename)
-      @func = @chunk.main
-      @chunk.main.dump
-    end
-
-    def run
-      step(9999)
-    end
-
-    def setobj2s(pos, v)
-      @stack[pos] = v
-    end
-
-    def step(c)
-      base = 0
-      kst = @func.consts
-      upvals = @func.upvals
-      pp kst
-      pp @func.upvals
-      pc = @saved_pc
-      while c > 0
-        i = @func.insts[pc]
-        pc += 1
-        opcode = Inst.op_opcode(i)
-        ra = base + Inst.op_a(i)
-        puts "%4d %s" % [@pc, Inst.inst_to_str(i)]
-        pp @stack
-        case opcode
-        when OP_LOADK
-          setobj2s(ra, kst[Inst.op_bx(i)])
-        when OP_GETTABUP
-          upval = upvals[Inst.op_b(i)]
-          p upval
-        else
-          raise "unknown opcode #{OPCODE_NAMES[opcode]}"
-        end
-        c -= 1
-      end
-    end
-
-  end
 end
 
 

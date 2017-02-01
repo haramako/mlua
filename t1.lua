@@ -1,14 +1,11 @@
 local hoge = 1
 print(hoge)
 
---[[
-function fuga()
-   local x = hoge
-   local home
+local function fuga(a)
+   local x
    function piyo()
-	  local a = hoge
-	  a = x
-	  a = print
+	  print(hoge,x)
    end
 end
---]]
+
+fuga(3)

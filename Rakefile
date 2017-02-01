@@ -5,7 +5,7 @@ if /darwin/ =~ RUBY_PLATFORM
   LUAC='luac5.3'
 else
   LUA='lua53'
-  LUA='luac53'
+  LUAC='luac53'
 end
 
 task :yacc do
@@ -14,6 +14,7 @@ end
 
 task :t1 do
   sh LUAC, '-l', 't1.lua'
+  # sh LUAC, 't1.lua'
   sh 'ruby', 'mlua.rb', 'luac.out'
 end
 
