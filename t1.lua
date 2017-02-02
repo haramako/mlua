@@ -1,11 +1,11 @@
-local hoge = 1
-print(hoge)
-
-local function fuga(a)
-   local x
-   function piyo()
-	  print(hoge,x)
+function fib(n)
+   if n <= 1 then
+	  return 1
+   else
+	  return fib(n-1) + fib(n-2)
    end
 end
 
-fuga(3)
+-- 1 1 2 3 5 8 13 21 34 55 89
+-- print(fib(5))
+print('hoge'..'fuga')
