@@ -1,9 +1,9 @@
 # coding: utf-8
 
 module Mlua
-  class CallInfo < Struct.new(:func, :top, :base, :prev, :nresults, :saved_pc)
+  class CallInfo < Struct.new(:func, :result_idx, :base, :prev, :nresults, :saved_pc)
     def inspect
-      "#<CallInfo #{@func} #{@top} #{@base}>"
+      "#<CallInfo #{@func} #{@result_idx} #{@base}>"
     end
     alias to_s inspect
   end
@@ -65,7 +65,7 @@ module Mlua
     def load_chunk(str, filename = nil)
       chunk = Chunk.new(str, filename)
       @stack[0] = Closure.new(chunk.main, nil)
-      @ci = CallInfo.new(0, 1, 1, nil, 1)
+      @ci = CallInfo.new(0, 0, 1, nil, 1)
     end
 
     def dump
@@ -75,16 +75,20 @@ module Mlua
           mark = 'base->'
         elsif i == @ci.func
           mark = 'func->'
-        elsif i == @ci.top
+        elsif i == @top
           mark = 'top->'
+        elsif i == @ci.result_idx
+          mark = 'res->'
         else
           mark = ''
         end
         puts "%8s %4d %s" % [mark, i, v]
       end
+      if false
       puts "**_ENV**"
       @env.each do |k,v|
         puts "%8s = %s" % [k, v]
+      end
       end
     end
 
@@ -109,7 +113,6 @@ module Mlua
     def set_upval(upval_idx, val)
       # MEMO: クロージャは未対応
       instack, idx = @func.upvals[upval_idx]
-      p [instack, idx]
       if instack == 1
         if @ci.prev == nil
           raise
@@ -137,28 +140,28 @@ module Mlua
       end
     end
 
-    def precall(func_idx, nargs, result_idx, nresults)
+    # nativeコールならtrueを返す
+    def precall(is_tailcall, func_idx, nargs, result_idx, nresults)
       func = @stack[func_idx]
       case func
       when Method, Proc
-        if func.arity > 0
-          args = @stack[func_idx+1,func.arity]
-        else
-          args = @stack[func_idx+1,nargs]
-        end
+        p [:call_proc, func.to_s, nargs, func.arity]
+        args = @stack[func_idx+1,nargs]
         result = func.call(*args)
         if result.is_a? MultiValue
-          p [:mv, result]
           if result.values.size == 0
             @stack[result_idx] = nil
-            @ci.top = result_idx
+            @top = result_idx
           else
             @stack[result_idx, result.values.size] = result.values
-            @ci.top = result_idx + result.values.size - 1
+            @top = result_idx + result.values.size
           end
         else
           @stack[result_idx] = result
-          @ci.top = result_idx + 1
+          @top = result_idx + 1
+        end
+        if is_tailcall
+          @pc = @ci.saved_pc
         end
       when Function
         raise
@@ -172,13 +175,17 @@ module Mlua
           if vararg_num > 0
             @stack[func_idx+1, vararg_num] = @stack[func_idx+1+fixed_num, vararg_num]
             @stack[func_idx+1+vararg_num, fixed_num] = fixed_args
+            p [:closure_param, @stack[func_idx+1, vararg_num], @stack[func_idx+1+vararg_num, fixed_num]]
+            base = func_idx + 1 + vararg_num
+          else
+            p [:closure_param, @stack[func_idx+1, fixed_num]]
+            base = func_idx + 1
           end
-          base = func_idx + 1 + vararg_num
         else
           # no varargs
           base = func_idx + 1
         end
-        @ci = CallInfo.new(func_idx, nil, base, @ci, nresults)
+        @ci = CallInfo.new(func_idx, result_idx, base, @ci, nresults)
         @pc = 0
       when nil
         raise "function is nil"
@@ -269,7 +276,10 @@ module Mlua
     #     -> RETURN       -> top
     #     -> SETLIST
     #
+    #        VARARG       -> top
+    #
     # CALL/TAILCALL -> ci.vararg -> VARARG -> top
+    #  (if C==0)
     #
     # CALL
     #  hoge(fuga())
@@ -302,6 +312,7 @@ module Mlua
         a = Inst.a(i)
         ra = @ci.base + a
         @log << ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
+        puts ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
         @pc += 1
         # pp @stack
         case opcode
@@ -352,6 +363,7 @@ module Mlua
         when OP_BNOT
           raise
         when OP_NOT
+          p [:op_not, rb(i), !rb(i)]
           setobj2s(ra, !rb(i))
         when OP_LEN
           setobj2s(ra, rb(i).size)
@@ -382,24 +394,24 @@ module Mlua
           b = Inst.b(i)
           nresults = Inst.c(i) - 1
           if b == 0
-            nargs = @ci.top - ra
+            nargs = @top - ra - 1
+            puts "op_call top=#{@top} ra=#{ra} narg=#{nargs}"
           else
             nargs = b - 1
-            @ci.top = ra
           end
           @ci.saved_pc = @pc
-          precall(ra, nargs, ra, nresults)
+          precall(false, ra, nargs, ra, nresults)
         when OP_TAILCALL
           b = Inst.b(i)
           if b == 0
-            nargs = @ci.top - ra
+            nargs = @top - ra - 1
           else
             nargs = b - 1
           end
-          old_func = @ci.func
-          @stack[@ci.func, nargs+1] = @stack[ra, nargs+1]
+          old_ci = @ci
           @ci = @ci.prev
-          precall(old_func, nargs, @ci.top, @ci.nresults)
+          @stack[old_ci.func, nargs+1] = @stack[ra, nargs+1]
+          precall(true, old_ci.func, nargs, old_ci.result_idx, old_ci.nresults)
         when OP_RETURN
           b = Inst.b(i)
           if @ci.prev.nil?
@@ -407,15 +419,16 @@ module Mlua
           else
             nresults = b - 1
             if nresults == -1
-              nresults = @ci.top - ra - 1
+              nresults = @top - ra
             end
 
-            @stack[@ci.prev.top, nresults] = @stack[@ci.base+a, nresults]
+            @stack[@ci.result_idx, nresults] = @stack[@ci.base+a, nresults]
             if nresults < @ci.nresults
-              (nresults...@ci.nresults).each {|i| @stack[@ci.prev.top+i] = nil } # 残りの帰り値をnilで埋める
+              (nresults...@ci.nresults).each {|i| @stack[@ci.result_idx+i] = nil } # 残りの帰り値をnilで埋める
             end
-            
-            @ci.prev.top = @ci.prev.top + nresults + 1
+
+            p [:return, @pc, @ci.result_idx, @top, nresults, @stack[@ci.result_idx, nresults]]
+            @top = @ci.result_idx + nresults
             @ci = @ci.prev
             @pc = @ci.saved_pc
           end
@@ -432,7 +445,7 @@ module Mlua
           @pc += Inst.sbx(i)
         when OP_TFORCALL
           nresult = Inst.c(i)
-          precall(ra, 2, ra + 3, nresult)
+          precall(false, ra, 2, ra + 3, nresult)
         when OP_TFORLOOP
           if r(ra+1) != nil
             setobj2s(ra, r(ra+1))
@@ -443,11 +456,12 @@ module Mlua
           c = Inst.c(i)
           b = Inst.b(i)
           if b == 0 # vararg
-            b = @ci.top - ra - 1
+            b = @top - ra - 1
           end
           (1..b).each do |i|
             set_tbl(tbl, (c-1)+i, r(a+i))
           end
+          p [:setlist, b, tbl]
         when OP_CLOSURE
           proto = @func.protos[Inst.bx(i)]
           setobj2s(ra, Closure.new(proto, @ci))
@@ -457,10 +471,11 @@ module Mlua
             f = @stack[@ci.func]
             n = @ci.base - @ci.func - 1
             n = 0 if n < 0
-            p [:vararg, @ci.base, @ci.func, f.func.param_num, n]
             @stack[ra, n] = @stack[@ci.func+1,n]
-            @ci.top = ra + n
+            p [:vararg1, n, @stack[ra, n]]
+            @top = ra + n
           else
+            p [:vararg2, b-1, @stack[@ci.func+1,b-1]]
             @stack[ra, b-1] = @stack[@ci.func+1,b-1]
           end
         else
@@ -470,8 +485,18 @@ module Mlua
       end
     rescue
       dump
-      puts @log.last(80)
+      puts @log.last(20)
       puts "#{@func.filename}:#{@func.debug_infos[@pc-1]}: error"
+      cur_ci = @ci.prev
+      while cur_ci
+        f = @stack[cur_ci.func]
+        if f
+          puts "#{f.func.filename}:#{f.func.debug_infos[cur_ci.saved_pc-1]}: error"
+        else
+          puts "broken stack at #{cur_ci.func}"
+        end
+        cur_ci = cur_ci.prev
+      end
       STDOUT.flush
       raise
     end

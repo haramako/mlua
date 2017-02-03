@@ -14,11 +14,13 @@ module Mlua
         puts args.join(" ")
       end
 
-      def assert(cond)
-        if !cond
-          raise "assert failed!"
+      def assert(*conds)
+        conds.each do |cond|
+          if !cond
+            raise "assert failed!"
+          end
         end
-        nil
+        MultiValue.new(*conds)
       end
       
       def require(modname)
@@ -46,6 +48,29 @@ module Mlua
         end
       end
 
+      def next(t, index = nil)
+        index ||= 0
+        case t
+        when Array
+          if index-1 < t.size
+            index += 1
+            MultiValue.new(index, t[index-1])
+          else
+            MultiValue.new(nil, nil)
+          end
+        when Hash
+          p [:next, t, index]
+          if index-1 < t.size
+            index += 1
+            MultiValue.new(index, t.values[index-1])
+          else
+            MultiValue.new(nil, nil)
+          end
+        else
+          raise
+        end
+      end
+      
       def ipairs(t)
         max = t.keys.max
         i = 0
@@ -79,6 +104,7 @@ module Mlua
 
       def select(index, *args)
         if index == '#'
+          pp [:select,args]
           args.size
         else
           args[index-1]
@@ -141,11 +167,11 @@ module Mlua
     end
 
     module StdString
-      def find(s, pattern, init, plain)
+      def find(s, pattern, init=nil, plain=nil)
         true
       end
 
-      def gsub(s, pattern, repl, n)
+      def gsub(s, pattern, repl, n=nil)
         ""
       end
 
@@ -156,13 +182,18 @@ module Mlua
 
     module Table
       def unpack(list, i = 1, j = nil)
+        p [:unpack, list, i, j]
         case list
         when Array
           j = list.size unless j
           MultiValue.new( *list[i-1..j-1] )
         when Hash
-          j = list.keys.max
-          MultiValue.new( *(i..j).map{|n| list[n]} )
+          j = list.keys.select{|n| n.is_a? Numeric}.max unless j
+          if j
+            MultiValue.new( *(i..j).map{|n| list[n]} )
+          else
+            MultiValue.new()
+          end
         else
           raise
         end

@@ -5,7 +5,7 @@ print('testing vararg')
 function f(a, ...)
    local arg = {n = select('#', ...), ...}
    print('X',a,arg)
-  for i=1,arg.n do assert(a[i]==arg[i]) end
+   for i=1,arg.n do print(i); assert(a[i]==arg[i]) end
   return arg.n
 end
 
@@ -21,14 +21,12 @@ end
 function vararg (...) return {n = select('#', ...), ...} end
 
 local call = function (f, args) return f(table.unpack(args, 1, args.n)) end
--- local call = function (f, args) local a = f(table.unpack(args, 1, args.n)) ; return a end
 
 assert(f() == 0)
 assert(f({1,2,3}, 1, 2, 3) == 3)
 assert(f({"alo", nil, 45, f, nil}, "alo", nil, 45, f, nil) == 5)
 
 assert(c12(1,2)==55)
-print('P',call(c12, {1,2}))
 a,b = assert(call(c12, {1,2}))
 assert(a == 55 and b == 2)
 a = call(c12, {1,2;n=2})
@@ -36,8 +34,10 @@ assert(a == 55 and b == 2)
 a = call(c12, {1,2;n=1})
 assert(not a)
 assert(c12(1,2,3) == false)
+print(call(next, {_G,nil;n=2}))
 local a = vararg(call(next, {_G,nil;n=2}))
 local b,c = next(_G)
+print('XXX', a, a[1], b, a[2], 'c', c, a.n)
 assert(a[1] == b and a[2] == c and a.n == 2)
 a = vararg(call(call, {c12, {1,2}}))
 assert(a.n == 2 and a[1] == 55 and a[2] == 2)
