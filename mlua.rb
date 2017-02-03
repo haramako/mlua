@@ -14,7 +14,6 @@ require 'pp'
 ARGV.each do |file|
   lua = Mlua::State.new
   lua.load_file(file)
-  puts '='*80
   lua.run
 end
 

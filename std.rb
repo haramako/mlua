@@ -107,9 +107,11 @@ module Mlua
 
       def select(index, *args)
         if index == '#'
-          pp [:select,args]
           args.size
         else
+          if index < 0
+            index = args.size + index + 1
+          end
           if args and index-1 < args.size
             MultiValue.new(*args[index-1..-1])
           else
@@ -193,7 +195,6 @@ module Mlua
 
     module Table
       def unpack(list, i = 1, j = nil)
-        p [:unpack, list, i, j]
         case list
         when Array
           j = list.size unless j

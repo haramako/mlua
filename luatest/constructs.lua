@@ -77,7 +77,6 @@ function f (i)
 end
 
 x = {f(3), f(5), f(10);};
-print('XXX', x)
 assert(x[1] == 3 and x[2] == 5 and x[3] == 10 and x[4] == 9 and x[12] == 1);
 assert(x[nil] == nil)
 x = {f'alo', f'xixi', nil};
@@ -192,7 +191,6 @@ f = string.gsub(f, "%s+", "\n");   -- force a SETLINE between opcodes
 -- assert(a.a == 1 and a.b)
 function f( a , b , c , d , e )
    local x = a >= b or c or ( d and e ) or nil
-   print(x)
   return x
 end
 
@@ -294,9 +292,7 @@ local prog = [[if %s then IX = true end; return %s]]
 
 local i = 0
 for n = 1, level do
-   print(cases[n])
    for _, v in pairs(cases[n]) do
-	  print(v)
     local s = v[1]
     local p = load(string.format(prog, s, s), "")
     IX = false

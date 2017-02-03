@@ -4,15 +4,13 @@ print('testing vararg')
 
 function f(a, ...)
    local arg = {n = select('#', ...), ...}
-   print('X',a,arg)
-   for i=1,arg.n do print(i); assert(a[i]==arg[i]) end
+   for i=1,arg.n do assert(a[i]==arg[i]) end
   return arg.n
 end
 
 function c12 (...)
   assert(arg == _G.arg)    -- no local 'arg'
   local x = {...}; x.n = #x
-  print('XX', x)
   local res = (x.n==2 and x[1] == 1 and x[2] == 2)
   if res then res = 55 end
   return res, 2
@@ -34,10 +32,8 @@ assert(a == 55 and b == 2)
 a = call(c12, {1,2;n=1})
 assert(not a)
 assert(c12(1,2,3) == false)
-print(call(next, {_G,nil;n=2}))
 local a = vararg(call(next, {_G,nil;n=2}))
 local b,c = next(_G)
-print('XXX', a, a[1], b, a[2], 'c', c, a.n)
 assert(a[1] == b and a[2] == c and a.n == 2)
 a = vararg(call(call, {c12, {1,2}}))
 assert(a.n == 2 and a[1] == 55 and a[2] == 2)
@@ -86,7 +82,6 @@ function f (n, a, ...)
     return a, b, c, d, oneless(oneless(oneless(...)))
   else
 	 n, b, a = n-1, ..., a
-	 print("YY",n,b,a,...)
     assert(b == ...)
     return f(n, a, ...)
   end
@@ -96,7 +91,6 @@ a,b,c,d,e = assert(f(10,5,4,3,2,1))
 assert(a==5 and b==4 and c==3 and d==2 and e==1)
 
 a,b,c,d,e = f(4)
-print(a,b,c,d,e)
 assert(a==nil and b==nil and c==nil and d==nil and e==nil)
 
 
@@ -121,14 +115,13 @@ assert(f())
 a = {select(3, table.unpack{10,20,30,40})}
 assert(#a == 2 and a[1] == 30 and a[2] == 40)
 a = {select(1)}
-print('NEXT',next(a))
 assert(next(a) == nil)
 a = {select(-1, 3, 5, 7)}
 assert(a[1] == 7 and a[2] == nil)
 a = {select(-2, 3, 5, 7)}
 assert(a[1] == 5 and a[2] == 7 and a[3] == nil)
-pcall(select, 10000)
-pcall(select, -10000)
+-- pcall(select, 10000)
+-- pcall(select, -10000)
 
 
 -- bug in 5.2.2

@@ -18,6 +18,12 @@ task :t1 do
   sh 'ruby', 'mlua.rb', 'luac.out'
 end
 
+task :test do
+  ['code.lua', 'constructs.lua', 'vararg.lua'].each do |f|
+    sh 'ruby', 'mlua.rb', 'luatest/' + f
+  end
+end
+
 task :lua_test do
   Find.find('C:\Program Files (x86)\Lua\5.1\examples') do |f|
     next unless f.match  /\.lua$/

@@ -145,7 +145,6 @@ module Mlua
       func = @stack[func_idx]
       case func
       when Method, Proc
-        p [:call_proc, func.to_s, nargs, func.arity]
         args = @stack[func_idx+1,nargs]
         result = func.call(*args)
         if result.is_a? MultiValue
@@ -178,10 +177,8 @@ module Mlua
           if vararg_num > 0
             @stack[func_idx+1, vararg_num] = @stack[func_idx+1+fixed_num, vararg_num]
             @stack[func_idx+1+vararg_num, fixed_num] = fixed_args
-            p [:closure_param, @stack[func_idx+1, vararg_num], @stack[func_idx+1+vararg_num, fixed_num]]
             base = func_idx + 1 + vararg_num
           else
-            p [:closure_param, @stack[func_idx+1, fixed_num]]
             base = func_idx + 1
           end
         else
@@ -315,7 +312,7 @@ module Mlua
         a = Inst.a(i)
         ra = @ci.base + a
         @log << ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
-        puts ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
+        # puts ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
         @pc += 1
         # pp @stack
         case opcode
@@ -370,10 +367,8 @@ module Mlua
         when OP_BNOT
           raise
         when OP_NOT
-          p [:op_not, rb(i), !rb(i)]
           setobj2s(ra, !rb(i))
         when OP_LEN
-          p [:len, rb(i), rb(i).size]
           setobj2s(ra, rb(i).size)
         when OP_CONCAT
           str = @stack[(@ci.base+Inst.b(i))..(@ci.base+Inst.c(i))].join
@@ -403,7 +398,6 @@ module Mlua
           nresults = Inst.c(i) - 1
           if b == 0
             nargs = @top - ra - 1
-            puts "op_call top=#{@top} ra=#{ra} narg=#{nargs}"
           else
             nargs = b - 1
           end
@@ -435,7 +429,6 @@ module Mlua
               (nresults...@ci.nresults).each {|i| @stack[@ci.result_idx+i] = nil } # 残りの帰り値をnilで埋める
             end
 
-            p [:return, @pc, @ci.result_idx, @top, nresults, @ci.nresults, @stack[@ci.result_idx, nresults]]
             @top = @ci.result_idx + nresults
             @ci = @ci.prev
             @pc = @ci.saved_pc
@@ -469,7 +462,6 @@ module Mlua
           (1..b).each do |i|
             set_tbl(tbl, (c-1)+i, r(a+i))
           end
-          p [:setlist, b, tbl]
         when OP_CLOSURE
           proto = @func.protos[Inst.bx(i)]
           setobj2s(ra, Closure.new(proto, @ci))
@@ -481,10 +473,8 @@ module Mlua
             n = @ci.base - @ci.func - 1
             # n = 0 if n < 0
             @stack[ra, n] = @stack[@ci.func+1,n]
-            p [:vararg1, n, @stack[ra, n]]
             @top = ra + n
           else
-            p [:vararg2, b-1, @stack[@ci.func+1,b-1]]
             @stack[ra, b-1] = @stack[@ci.func+1,b-1]
             if n < b-1
               (n...b-1).each{|i| @stack[ra+i] = nil }
