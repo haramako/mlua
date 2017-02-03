@@ -17,7 +17,7 @@ end
 
 -- testing reuse in constant table
 local function checkKlist (func, list)
-  local k = T.listk(func)
+   local k = T.listk(func)
   assert(#k == #list)
   for i = 1, #k do
     assert(k[i] == list[i] and math.type(k[i]) == math.type(list[i]))

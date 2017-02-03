@@ -31,22 +31,21 @@ module Mlua
       @pc = 0
       @stack = []
       
-      @env = {}
+      @env = Table.new
       @env['_ENV'] = @env
       @env['_G'] = @env
-      @env.merge! LuaModule.to_table(LuaModule::Global)
-      mods = [
+      @env.merge LuaModule.to_table(LuaModule::Global)
+      [
         ['T', LuaModule::T],
         ['math', LuaModule::LuaMath],
         ['string', LuaModule::StdString],
         ['debug', LuaModule::Debug],
         ['os', LuaModule::OS],
-        ['table', LuaModule::Table],
-      ]
-      mods.each do |k,v|
+        ['table', LuaModule::LuaTable],
+      ].each do |k,v|
         @env[k] = LuaModule.to_table(v)
       end
-    end
+     end
 
     if /darwin/ =~ RUBY_PLATFORM
       LUA='lua5.3'
@@ -140,6 +139,14 @@ module Mlua
       end
     end
 
+    def validate_value!(v)
+      case v
+      when nil, TrueClass, FalseClass, Numeric, Table, String, Closure, Method, Proc
+        # DO NOTHING
+      else
+        raise "#{v} is not valid lua value"
+      end
+    end
     # nativeコールならtrueを返す
     def precall(is_tailcall, func_idx, nargs, result_idx, nresults)
       func = @stack[func_idx]
@@ -152,10 +159,12 @@ module Mlua
             @stack[result_idx] = nil
             @top = result_idx
           else
+            result.values.each {|v| validate_value! v }
             @stack[result_idx, result.values.size] = result.values
             @top = result_idx + result.values.size
           end
         else
+          validate_value! result
           @stack[result_idx] = result
           @top = result_idx + 1
         end
@@ -234,27 +243,13 @@ module Mlua
     }
 
     def get_tbl(tbl, idx)
-      case tbl
-      when Array
-        tbl[idx-1]
-      when Hash
-        tbl[idx]
-      when nil
-        raise "table is nil"
-      else
-        raise "invalid tbl #{tbl.class}"
-      end
+      raise "invalid tbl #{tbl.class}" unless tbl.is_a? Table
+      tbl[idx]
     end
 
     def set_tbl(tbl, idx, val)
-      case tbl
-      when Array
-        tbl[idx-1] = val
-      when Hash
-        tbl[idx] = val
-      else
-        raise "invalid tbl #{tbl.class}"
-      end
+      raise "invalid tbl #{tbl.class}" unless tbl.is_a? Table
+      tbl[idx] = val
     end
 
     def as_bool(v)
@@ -266,11 +261,6 @@ module Mlua
     end
 
     # topを使うもの
-    # CALL(C=0), TAILCALL, SETLIST, RETURN(B=0), VARARG
-    #
-    # topを設定するもの
-    # CALL(B=0), TAILCALL(B=0), RETURN(B=0), VARARG
-    #
     #
     # top -> CALL/TAILCALL-> top
     #     -> RETURN       -> top
@@ -280,25 +270,6 @@ module Mlua
     #
     # CALL/TAILCALL -> ci.vararg -> VARARG -> top
     #  (if C==0)
-    #
-    # CALL
-    #  hoge(fuga())
-    #  hoge(1, fuga())
-    #  hoge(...)
-    #
-    # TAILCALL
-    #  return hoge()
-    #
-    # RETURN
-    #  return ...
-    #  return hoge()
-    #
-    # VARARG
-    #   a = ...
-    # 
-    # 
-    #
-    #
     #
     def step(count)
       @log = []
@@ -344,7 +315,7 @@ module Mlua
         when OP_SETTABLE
           set_tbl(r(a), rkb(i), rkc(i))
         when OP_NEWTABLE
-          setobj2s( ra, {} )
+          setobj2s( ra, Table.new )
         when OP_SELF
           tbl = rb(i)
           setobj2s(ra+1, tbl)

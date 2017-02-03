@@ -6,7 +6,7 @@ module Mlua
       list = mod.instance_methods.map do |name|
         [name.to_s, mod.instance_method(name).bind(nil)]
       end
-      Hash[list]
+      Table.new(Hash[list])
     end
     
     module Global
@@ -39,9 +39,9 @@ module Mlua
           'string'
         when TrueClass, FalseClass
           'boolean'
-        when Hash, Array
+        when Table
           'table'
-        when Closure, Method, Function
+        when Closure, Method
           'function'
         else
           'userdata'
@@ -51,21 +51,12 @@ module Mlua
       def next(t, index = nil)
         index ||= 0
         case t
-        when Array
+        when Table
           if t.size == 0
             nil
           elsif index-1 < t.size
             index += 1
-            MultiValue.new(index, t[index-1])
-          else
-            nil
-          end
-        when Hash
-          if t.size == 0
-            nil
-          elsif index-1 < t.size
-            index += 1
-            MultiValue.new(index, t.values[index-1])
+            MultiValue.new(index, t[index])
           else
             nil
           end
@@ -75,34 +66,25 @@ module Mlua
       end
       
       def ipairs(t)
-        max = t.keys.max
-        i = 0
-        return proc do
-          i += 1
-          puts(i)
-          if max.nil? or i > max
+        iter = t.each_ipairs
+        proc do
+          begin
+            iter.next
+          rescue StopIteration
             nil
-          else
-            i
           end
         end
       end
 
       def pairs(t)
-        keys = t.keys.select{|x| x.is_a? String}
-        i = 0
-        MultiValue.new(
-          proc do
-            if i >= keys.size
-              MultiValue.new(nil,nil)
-            else
-              i += 1
-              MultiValue.new([keys[i-1], t[keys[i-1]]])
-            end
-          end,
-          t,
-          nil
-        )
+        iter = t.each_pairs
+        proc do
+          begin
+            MultiValue.new(*iter.next)
+          rescue StopIteration
+            MultiValue.new(nil,nil)
+          end
+        end
       end
 
       def select(index, *args)
@@ -133,7 +115,7 @@ module Mlua
     module T
       def listk(func)
         if func.is_a? Closure
-          func.func.consts
+          Table.new(func.func.consts)
         else
           raise "arg is not function #{func}"
         end
@@ -141,7 +123,7 @@ module Mlua
       
       def listcode(func)
         if func.is_a? Closure
-          func.func.insts
+          Table.new(func.func.insts)
         else
           raise "arg is not function #{func}"
         end
@@ -193,19 +175,11 @@ module Mlua
       end
     end
 
-    module Table
+    module LuaTable
       def unpack(list, i = 1, j = nil)
         case list
-        when Array
-          j = list.size unless j
-          MultiValue.new( *list[i-1..j-1] )
-        when Hash
-          j = list.keys.select{|n| n.is_a? Numeric}.max unless j
-          if j
-            MultiValue.new( *(i..j).map{|n| list[n]} )
-          else
-            MultiValue.new()
-          end
+        when Table
+          MultiValue.new( *list.lua_slice(i,j) )
         else
           raise
         end

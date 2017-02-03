@@ -6,6 +6,7 @@ require_relative 'parser'
 
 require_relative 'consts'
 require_relative 'util'
+require_relative 'table'
 require_relative 'std'
 require_relative 'state'
 
