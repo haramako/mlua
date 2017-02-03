@@ -172,6 +172,9 @@ module Mlua
           fixed_num = func.func.param_num
           vararg_num = nargs - fixed_num
           fixed_args = @stack[func_idx+1, fixed_num]
+          if nargs < fixed_num
+            (nargs...fixed_num).each {|i| @stack[func_idx+1+i] = nil }
+          end
           if vararg_num > 0
             @stack[func_idx+1, vararg_num] = @stack[func_idx+1+fixed_num, vararg_num]
             @stack[func_idx+1+vararg_num, fixed_num] = fixed_args
@@ -345,6 +348,10 @@ module Mlua
           set_tbl(r(a), rkb(i), rkc(i))
         when OP_NEWTABLE
           setobj2s( ra, {} )
+        when OP_SELF
+          tbl = rb(i)
+          setobj2s(ra+1, tbl)
+          setobj2s(ra, get_tbl(tbl, rkc(i)))
         when OP_ADD, OP_SUB, OP_MUL, OP_MOD, OP_POW, OP_DIV, OP_IDIV,
              OP_BAND, OP_BOR, OP_BXOR, OP_SHL, OP_SHR
           binop = BINOP_METHOD[opcode]
@@ -366,6 +373,7 @@ module Mlua
           p [:op_not, rb(i), !rb(i)]
           setobj2s(ra, !rb(i))
         when OP_LEN
+          p [:len, rb(i), rb(i).size]
           setobj2s(ra, rb(i).size)
         when OP_CONCAT
           str = @stack[(@ci.base+Inst.b(i))..(@ci.base+Inst.c(i))].join
@@ -427,7 +435,7 @@ module Mlua
               (nresults...@ci.nresults).each {|i| @stack[@ci.result_idx+i] = nil } # 残りの帰り値をnilで埋める
             end
 
-            p [:return, @pc, @ci.result_idx, @top, nresults, @stack[@ci.result_idx, nresults]]
+            p [:return, @pc, @ci.result_idx, @top, nresults, @ci.nresults, @stack[@ci.result_idx, nresults]]
             @top = @ci.result_idx + nresults
             @ci = @ci.prev
             @pc = @ci.saved_pc
@@ -467,16 +475,21 @@ module Mlua
           setobj2s(ra, Closure.new(proto, @ci))
         when OP_VARARG
           b = Inst.b(i)
+          n = @ci.base - @ci.func - 1
           if b == 0
             f = @stack[@ci.func]
             n = @ci.base - @ci.func - 1
-            n = 0 if n < 0
+            # n = 0 if n < 0
             @stack[ra, n] = @stack[@ci.func+1,n]
             p [:vararg1, n, @stack[ra, n]]
             @top = ra + n
           else
             p [:vararg2, b-1, @stack[@ci.func+1,b-1]]
             @stack[ra, b-1] = @stack[@ci.func+1,b-1]
+            if n < b-1
+              (n...b-1).each{|i| @stack[ra+i] = nil }
+            end
+            @top = ra + b - 1
           end
         else
           raise "unknown opcode #{OPCODE_NAMES[opcode]}"

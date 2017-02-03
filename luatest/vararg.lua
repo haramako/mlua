@@ -85,7 +85,8 @@ function f (n, a, ...)
     local b, c, d = ...
     return a, b, c, d, oneless(oneless(oneless(...)))
   else
-    n, b, a = n-1, ..., a
+	 n, b, a = n-1, ..., a
+	 print("YY",n,b,a,...)
     assert(b == ...)
     return f(n, a, ...)
   end
@@ -95,10 +96,12 @@ a,b,c,d,e = assert(f(10,5,4,3,2,1))
 assert(a==5 and b==4 and c==3 and d==2 and e==1)
 
 a,b,c,d,e = f(4)
+print(a,b,c,d,e)
 assert(a==nil and b==nil and c==nil and d==nil and e==nil)
 
 
 -- varargs for main chunks
+--[=[
 f = load[[ return {...} ]]
 x = f(2,3)
 assert(x[1] == 2 and x[2] == 3 and x[3] == nil)
@@ -113,10 +116,12 @@ f = load[[
 
 assert(f("a", "b", nil, {}, assert))
 assert(f())
+--]=]
 
 a = {select(3, table.unpack{10,20,30,40})}
 assert(#a == 2 and a[1] == 30 and a[2] == 40)
 a = {select(1)}
+print('NEXT',next(a))
 assert(next(a) == nil)
 a = {select(-1, 3, 5, 7)}
 assert(a[1] == 7 and a[2] == nil)

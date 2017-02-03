@@ -52,19 +52,22 @@ module Mlua
         index ||= 0
         case t
         when Array
-          if index-1 < t.size
+          if t.size == 0
+            nil
+          elsif index-1 < t.size
             index += 1
             MultiValue.new(index, t[index-1])
           else
-            MultiValue.new(nil, nil)
+            nil
           end
         when Hash
-          p [:next, t, index]
-          if index-1 < t.size
+          if t.size == 0
+            nil
+          elsif index-1 < t.size
             index += 1
             MultiValue.new(index, t.values[index-1])
           else
-            MultiValue.new(nil, nil)
+            nil
           end
         else
           raise
@@ -107,7 +110,11 @@ module Mlua
           pp [:select,args]
           args.size
         else
-          args[index-1]
+          if args and index-1 < args.size
+            MultiValue.new(*args[index-1..-1])
+          else
+            MultiValue.new()
+          end
         end
       end
       
@@ -157,6 +164,10 @@ module Mlua
 
       def floor(x)
         x.floor
+      end
+
+      def max(*args)
+        args.max
       end
     end
 
