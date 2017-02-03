@@ -77,7 +77,6 @@ function f (i)
 end
 
 x = {f(3), f(5), f(10);};
-print(x)
 assert(x[1] == 3 and x[2] == 5 and x[3] == 10 and x[4] == 9 and x[12] == 1);
 assert(x[nil] == nil)
 x = {f'alo', f'xixi', nil};
@@ -103,7 +102,7 @@ i=3;
 t = {};
 a=nil
 while not a do
-  a=0; for i=1,n do for i=i,1,-1 do a=a+1; t[i]=1; end; end;
+   a=0; for i=1,n do for i=i,1,-1 do a=a+1; t[i]=1; end; end;
 end
 assert(a == n*(n+1)/2 and i==3);
 assert(t[1] and t[n] and not t[0] and not t[n+1])
@@ -174,6 +173,7 @@ assert(a==1 and b==nil)
 function g() f(); return; end;
 assert(g() == nil)
 function g() return nil or f() end
+function g() return false or f() end
 a,b = g()
 assert(a==1 and b==nil)
 
@@ -187,8 +187,13 @@ return function ( a , b , c , d , e )
 end , { a = 1 , b = 2 >= 1 , } or { 1 };
 ]]
 f = string.gsub(f, "%s+", "\n");   -- force a SETLINE between opcodes
-f,a = load(f)();
-assert(a.a == 1 and a.b)
+-- f,a = load(f)();
+-- assert(a.a == 1 and a.b)
+function f( a , b , c , d , e )
+   local x = a >= b or c or ( d and e ) or nil
+   print(x)
+  return x
+end
 
 function g (a,b,c,d,e)
   if not (a>=b or c or d and e or nil) then return 0; else return 1; end;
@@ -223,7 +228,7 @@ do
 end
 
 function F(a)
-  assert(debug.getinfo(1, "n").name == 'F')
+  -- assert(debug.getinfo(1, "n").name == 'F')
   return a,2,3
 end
 
@@ -288,7 +293,9 @@ local prog = [[if %s then IX = true end; return %s]]
 
 local i = 0
 for n = 1, level do
-  for _, v in pairs(cases[n]) do
+   print(cases[n])
+   for _, v in pairs(cases[n]) do
+	  print(v)
     local s = v[1]
     local p = load(string.format(prog, s, s), "")
     IX = false

@@ -45,9 +45,54 @@ module Mlua
           'userdata'
         end
       end
+
+      def ipairs(t)
+        max = t.keys.max
+        i = 0
+        return proc do
+          i += 1
+          puts(i)
+          if max.nil? or i > max
+            nil
+          else
+            i
+          end
+        end
+      end
+
+      def pairs(t)
+        keys = t.keys.select{|x| x.is_a? String}
+        i = 0
+        MultiValue.new(
+          proc do
+            if i >= keys.size
+              MultiValue.new(nil,nil)
+            else
+              i += 1
+              MultiValue.new([keys[i-1], t[keys[i-1]]])
+            end
+          end,
+          t,
+          nil
+        )
+      end
+
+      def select(index, *args)
+        if index == '#'
+          args.size
+        else
+          args[index-1]
+        end
+      end
+      
+      def load(chunk, chunkname = nil, mode = nil, env = nil)
+        chunk
+      end
     end
 
     module Debug
+      def getinfo(thread, f, what)
+      end
     end
     
     module T
@@ -68,7 +113,7 @@ module Mlua
       end
     end
 
-    module Math
+    module LuaMath
       def type(val)
         case val
         when Float
@@ -79,6 +124,20 @@ module Mlua
           nil
         end
       end
+
+      def sin(x)
+        Math.sin(x)
+      end
+
+      def floor(x)
+        x.floor
+      end
+    end
+
+    module OS
+      def time()
+        Time.now.to_i
+      end
     end
 
     module StdString
@@ -88,6 +147,17 @@ module Mlua
 
       def gsub(s, pattern, repl, n)
         ""
+      end
+
+      def rep(s, n, sep = nil)
+        s * n
+      end
+    end
+
+    module Table
+      def unpack(list, i = 1, j = nil)
+        j = list.size + 1 unless j
+        MultiValue.new(*list[i-1..j-1])
       end
     end
 
