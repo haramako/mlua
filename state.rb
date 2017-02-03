@@ -148,9 +148,17 @@ module Mlua
         end
         result = func.call(*args)
         if result.is_a? MultiValue
-          @stack[result_idx, result.values.size] = result.values
+          p [:mv, result]
+          if result.values.size == 0
+            @stack[result_idx] = nil
+            @ci.top = result_idx
+          else
+            @stack[result_idx, result.values.size] = result.values
+            @ci.top = result_idx + result.values.size - 1
+          end
         else
           @stack[result_idx] = result
+          @ci.top = result_idx + 1
         end
       when Function
         raise
@@ -165,14 +173,12 @@ module Mlua
             @stack[func_idx+1, vararg_num] = @stack[func_idx+1+fixed_num, vararg_num]
             @stack[func_idx+1+vararg_num, fixed_num] = fixed_args
           end
-          base = @top - fixed_num
+          base = func_idx + 1 + vararg_num
         else
           # no varargs
           base = func_idx + 1
         end
-        @top = base + func.func.max_stack_size
-        @ci.saved_pc = @pc
-        @ci = CallInfo.new(func_idx, @top, base, @ci, nresults)
+        @ci = CallInfo.new(func_idx, nil, base, @ci, nresults)
         @pc = 0
       when nil
         raise "function is nil"
@@ -252,6 +258,38 @@ module Mlua
       step(-1)
     end
 
+    # topを使うもの
+    # CALL(C=0), TAILCALL, SETLIST, RETURN(B=0), VARARG
+    #
+    # topを設定するもの
+    # CALL(B=0), TAILCALL(B=0), RETURN(B=0), VARARG
+    #
+    #
+    # top -> CALL/TAILCALL-> top
+    #     -> RETURN       -> top
+    #     -> SETLIST
+    #
+    # CALL/TAILCALL -> ci.vararg -> VARARG -> top
+    #
+    # CALL
+    #  hoge(fuga())
+    #  hoge(1, fuga())
+    #  hoge(...)
+    #
+    # TAILCALL
+    #  return hoge()
+    #
+    # RETURN
+    #  return ...
+    #  return hoge()
+    #
+    # VARARG
+    #   a = ...
+    # 
+    # 
+    #
+    #
+    #
     def step(count)
       @log = []
       while count != 0
@@ -344,25 +382,24 @@ module Mlua
           b = Inst.b(i)
           nresults = Inst.c(i) - 1
           if b == 0
-            nargs = @top - ra
+            nargs = @ci.top - ra
           else
             nargs = b - 1
-            @top = ra + b
             @ci.top = ra
           end
-          p [:nargs, b, nargs, nresults]
+          @ci.saved_pc = @pc
           precall(ra, nargs, ra, nresults)
         when OP_TAILCALL
           b = Inst.b(i)
           if b == 0
-            nargs = @top - ra
+            nargs = @ci.top - ra
           else
             nargs = b - 1
-            @top = ra + b
-            @ci.top = ra
           end
+          old_func = @ci.func
+          @stack[@ci.func, nargs+1] = @stack[ra, nargs+1]
           @ci = @ci.prev
-          precall(ra, nargs, @ci.top, @ci.nresults)
+          precall(old_func, nargs, @ci.top, @ci.nresults)
         when OP_RETURN
           b = Inst.b(i)
           if @ci.prev.nil?
@@ -395,10 +432,6 @@ module Mlua
           @pc += Inst.sbx(i)
         when OP_TFORCALL
           nresult = Inst.c(i)
-          if b != 0
-            @top = ra + 3
-            @ci.top = ra
-          end
           precall(ra, 2, ra + 3, nresult)
         when OP_TFORLOOP
           if r(ra+1) != nil
@@ -421,8 +454,10 @@ module Mlua
         when OP_VARARG
           b = Inst.b(i)
           if b == 0
+            f = @stack[@ci.func]
             n = @ci.base - @ci.func - 1
             n = 0 if n < 0
+            p [:vararg, @ci.base, @ci.func, f.func.param_num, n]
             @stack[ra, n] = @stack[@ci.func+1,n]
             @ci.top = ra + n
           else

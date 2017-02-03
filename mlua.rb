@@ -11,10 +11,12 @@ require_relative 'state'
 
 require 'pp'
 
-lua = Mlua::State.new
-lua.load_file(ARGV[0])
-puts '='*80
-lua.run
+ARGV.each do |file|
+  lua = Mlua::State.new
+  lua.load_file(file)
+  puts '='*80
+  lua.run
+end
 
 =begin
 begin

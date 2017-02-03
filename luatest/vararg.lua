@@ -12,6 +12,7 @@ end
 function c12 (...)
   assert(arg == _G.arg)    -- no local 'arg'
   local x = {...}; x.n = #x
+  print('XX', x)
   local res = (x.n==2 and x[1] == 1 and x[2] == 2)
   if res then res = 55 end
   return res, 2
@@ -20,14 +21,15 @@ end
 function vararg (...) return {n = select('#', ...), ...} end
 
 local call = function (f, args) return f(table.unpack(args, 1, args.n)) end
+-- local call = function (f, args) local a = f(table.unpack(args, 1, args.n)) ; return a end
 
 assert(f() == 0)
 assert(f({1,2,3}, 1, 2, 3) == 3)
 assert(f({"alo", nil, 45, f, nil}, "alo", nil, 45, f, nil) == 5)
 
 assert(c12(1,2)==55)
+print('P',call(c12, {1,2}))
 a,b = assert(call(c12, {1,2}))
-print('D')
 assert(a == 55 and b == 2)
 a = call(c12, {1,2;n=2})
 assert(a == 55 and b == 2)

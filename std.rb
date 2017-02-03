@@ -156,8 +156,16 @@ module Mlua
 
     module Table
       def unpack(list, i = 1, j = nil)
-        j = list.size + 1 unless j
-        MultiValue.new(*list[i-1..j-1])
+        case list
+        when Array
+          j = list.size unless j
+          MultiValue.new( *list[i-1..j-1] )
+        when Hash
+          j = list.keys.max
+          MultiValue.new( *(i..j).map{|n| list[n]} )
+        else
+          raise
+        end
       end
     end
 
