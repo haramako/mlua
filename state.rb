@@ -24,6 +24,7 @@ module Mlua
 
   class State
     attr_reader :env
+    attr_accessor :trace
     
     def initialize
       $lua = self
@@ -82,6 +83,7 @@ module Mlua
           mark = ''
         end
         puts "%8s %4d %s" % [mark, i, v]
+        break if i > @top + 20
       end
       if false
       puts "**_ENV**"
@@ -147,9 +149,24 @@ module Mlua
         raise "#{v} is not valid lua value"
       end
     end
+
+    def copy_and_fill(from, from_size, to, to_size)
+      from_size = to_size if from_size > to_size
+      if to != from
+        @stack[to, to_size] = @stack[from, to_size]
+      end
+      while from_size < to_size
+        @stack[to + from_size] = nil
+        from_size += 1
+      end
+    end
+    
     # nativeコールならtrueを返す
     def precall(is_tailcall, func_idx, nargs, result_idx, nresults)
       func = @stack[func_idx]
+      if is_tailcall
+        p func
+      end
       case func
       when Method, Proc
         args = @stack[func_idx+1,nargs]
@@ -174,14 +191,14 @@ module Mlua
       when Function
         raise
       when Closure
-        # base = func_idx + 1
+        fixed_num = func.func.param_num
         if func.func.is_vararg != 0
           # with varargs
-          fixed_num = func.func.param_num
           vararg_num = nargs - fixed_num
           fixed_args = @stack[func_idx+1, fixed_num]
-          if nargs < fixed_num
-            (nargs...fixed_num).each {|i| @stack[func_idx+1+i] = nil }
+          while nargs < fixed_num
+            @stack[func_idx+1+nargs] = nil
+            nargs += 1
           end
           if vararg_num > 0
             @stack[func_idx+1, vararg_num] = @stack[func_idx+1+fixed_num, vararg_num]
@@ -193,6 +210,7 @@ module Mlua
         else
           # no varargs
           base = func_idx + 1
+          copy_and_fill(func_idx+1, nargs, func_idx+1, fixed_num)
         end
         @ci = CallInfo.new(func_idx, result_idx, base, @ci, nresults)
         @pc = 0
@@ -282,8 +300,13 @@ module Mlua
         end
         a = Inst.a(i)
         ra = @ci.base + a
+        if @log.size > 100
+          @log = @log[-50..-1]
+        end
         @log << ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
-        # puts ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
+        if @trace
+          puts ("%4d [%3d] %s" % [@pc, @func.debug_infos[@pc], Inst.inst_to_str(i)])
+        end
         @pc += 1
         # pp @stack
         case opcode
@@ -348,10 +371,14 @@ module Mlua
           @pc += Inst.sbx(i)
         when OP_EQ
           b = rkb(i)
+          c = rkc(i)
           if b == true or b == false
             b = b ? 1 : 0
           end
-          @pc+=1 if (b == rkc(i)) != (Inst.a(i) != 0)
+          if c == true or c == false
+            c = c ? 1 : 0
+          end
+          @pc+=1 if (b == c) != (Inst.a(i) != 0)
         when OP_LT
           @pc+=1 if (rkb(i) < rkc(i)) != (Inst.a(i) != 0)
         when OP_LE

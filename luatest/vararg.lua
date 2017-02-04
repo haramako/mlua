@@ -91,6 +91,7 @@ a,b,c,d,e = assert(f(10,5,4,3,2,1))
 assert(a==5 and b==4 and c==3 and d==2 and e==1)
 
 a,b,c,d,e = f(4)
+print('X',a,b,c,d,e)
 assert(a==nil and b==nil and c==nil and d==nil and e==nil)
 
 

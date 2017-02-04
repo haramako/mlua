@@ -43,6 +43,8 @@ module Mlua
           'table'
         when Closure, Method
           'function'
+        when nil
+          'nil'
         else
           'userdata'
         end
@@ -105,6 +107,16 @@ module Mlua
       def load(chunk, chunkname = nil, mode = nil, env = nil)
         chunk
       end
+      
+      def pcall(f, *args)
+        # TODO: not implemented
+        false
+      end
+
+      def trace()
+        $lua.trace = true
+      end
+
     end
 
     module Debug
@@ -183,6 +195,10 @@ module Mlua
         else
           raise
         end
+      end
+
+      def pack(*args)
+        Table.new(args)
       end
     end
 
