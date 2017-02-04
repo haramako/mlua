@@ -99,6 +99,15 @@ module Mlua
       @map.merge! table.map
     end
 
+    def each
+      @array.each.with_index do |x,i|
+        yield i,x
+      end
+      @map.each do |k,v|
+        yield k,v
+      end
+    end
+
     def ==(t)
       if t.is_a? Table
         t.array == @array and t.map == @map
@@ -108,7 +117,12 @@ module Mlua
     end
 
     def inspect
-      "{" + @array.join(', ') + if @map.size > 0 then ';' + @map.inspect else '' end + '}'
+      r = ("{" + @array.join(', ') + if @map.size > 0 then ';' + @map.inspect else '' end + '}')
+      if r.size > 80
+        r[0..80] + '...'
+      else
+        r
+      end
     end
     alias to_s inspect
   end

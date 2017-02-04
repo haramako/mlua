@@ -105,7 +105,6 @@ while not a do
    a=0; for i=1,n do for i=i,1,-1 do a=a+1; t[i]=1; end; end;
 end
 assert(a == n*(n+1)/2 and i==3);
-print(t[1], t[n],t[0],t[n+1])
 assert(t[1] and t[n] and not t[0] and not t[n+1])
 
 function f(b)
@@ -266,9 +265,9 @@ local cases = {}
 local function createcases (n)
   local res = {}
   for i = 1, n - 1 do
-    for _, v1 in ipairs(cases[i]) do
+	 for _, v1 in ipairs(cases[i]) do
       for _, v2 in ipairs(cases[n - i]) do
-        for _, op in ipairs(binops) do
+		 for _, op in ipairs(binops) do
             local t = {
               "(" .. v1[1] .. op[1] .. v2[1] .. ")",
               op[2](v1[2], v2[2])
@@ -282,6 +281,7 @@ local function createcases (n)
   return res
 end
 
+_soft = 2
 -- do not do too many combinations for soft tests
 local level = _soft and 3 or 4
 

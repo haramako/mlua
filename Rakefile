@@ -19,7 +19,7 @@ task :t1 do
 end
 
 task :test do
-  ['code.lua', 'constructs.lua', 'vararg.lua'].each do |f|
+  ['code.lua', 'constructs.lua', 'vararg.lua', 'calls.lua'].each do |f|
     sh 'ruby', 'mlua.rb', 'luatest/' + f
   end
 end

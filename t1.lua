@@ -1,14 +1,41 @@
-function vararg (...) return {n = select('#', ...), ...} end
+-- testing reuse in constant table
 
-local call = function (f, args) return f(table.unpack(args, 1, args.n)) end
+local x = {1,2,3,4}
 
-local G={'a', 'b', 'c'}
+for _,v in ipairs(x) do
+   for _2,v2 in ipairs(x) do
+	  print(_,v,_2,v2)
+   end
+end
 
-print('X', next(G,nil))
-print('X', call(next, {G,nil;n=2}))
-local a = vararg(call(next, {G,nil;n=2}))
-local b,c = next(G)
-print('A',a,b,c)
+
+-- print(nil>0)
+
+--[=[
+
+fact = false
+do
+  res = 1
+  -- local res = 1
+  -- local function fact (n)
+  function fact (n)
+    if n==0 then return res
+    else return n*fact(n-1)
+    end
+  end
+  assert(fact(5) == 120)
+end
+
+function hoge()
+   local a = 1
+   local function fuga()
+	  return a
+   end
+   return fuga()
+end
+
+-- print(hoge())
+print(fact(5))
 
 --[[
 function fib(n)
@@ -23,3 +50,5 @@ end
 -- print(fib(5))
 print('hoge'..'fuga')
 --]]
+
+]=]

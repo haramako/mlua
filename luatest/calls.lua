@@ -38,17 +38,15 @@ end
 -- testing local-function recursion
 fact = false
 do
-  res = 1
-  -- local res = 1
-  -- local function fact (n)
-  function fact (n)
+  local res = 1
+  local function fact (n)
     if n==0 then return res
     else return n*fact(n-1)
     end
   end
   assert(fact(5) == 120)
 end
--- assert(fact == false)
+assert(fact == false)
 
 -- testing declarations
 a = {i = 10}
@@ -125,10 +123,10 @@ deep(200)
 
 -- testing tail call
 function deep (n) if n>0 then return deep(n-1) else return 101 end end
--- assert(deep(30000) == 101)
+assert(deep(30000) == 101)
 a = {}
 function a:deep (n) if n>0 then return self:deep(n-1) else return 101 end end
--- assert(a:deep(30000) == 101)
+assert(a:deep(30000) == 101)
 
 print('+')
 
@@ -158,8 +156,8 @@ F = function (f)
              end
     end
 
--- fat = Z(F)
--- assert(fat(0) == 1 and fat(4) == 24 and Z(F)(5)==5*Z(F)(4))
+fat = Z(F)
+assert(fat(0) == 1 and fat(4) == 24 and Z(F)(5)==5*Z(F)(4))
 
 local function g (z)
   local function f (a,b,c,d)
@@ -168,8 +166,8 @@ local function g (z)
   return f(z,z+1,z+2,z+3)
 end
 
--- f = g(10)
--- assert(f(9, 16) == 10+11+12+13+10+9+16+10)
+f = g(10)
+assert(f(9, 16) == 10+11+12+13+10+9+16+10)
 
 Z, F, f = nil
 print('+')
@@ -210,6 +208,7 @@ assert(a==1 and b==1 and c==nil and d==nil)
 a = ret2{ unlpack{1,2,3}, unlpack{3,2,1}, unlpack{"a", "b"}}
 assert(a[1] == 1 and a[2] == 3 and a[3] == "a" and a[4] == "b")
 
+os.exit(0)
 
 -- testing calls with 'incorrect' arguments
 rawget({}, "x", 1)

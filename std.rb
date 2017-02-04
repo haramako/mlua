@@ -11,7 +11,7 @@ module Mlua
     
     module Global
       def print(*args)
-        puts args.join(" ")
+        puts args.map(&:inspect).join(", ")
       end
 
       def assert(*conds)
@@ -68,14 +68,21 @@ module Mlua
       end
       
       def ipairs(t)
-        iter = t.each_ipairs
-        proc do
-          begin
-            iter.next
-          rescue StopIteration
-            nil
+        # p [:ipairs0, t.array.size, t.__id__, t]
+        if false and t.array.size == 100
+          pp t
+          raise
+        end
+        iter = proc do |t,idx|
+          # p [:ipairs, idx, t.array.size, t.__id__, t]
+          idx += 1
+          if idx <= t.array.size
+            MultiValue.new(idx, t[idx])
+          else
+            MultiValue.new(nil,nil)
           end
         end
+        MultiValue.new(iter, t, 0)
       end
 
       def pairs(t)
@@ -170,6 +177,10 @@ module Mlua
     module OS
       def time()
         Time.now.to_i
+      end
+
+      def exit(code = 0, close = nil)
+        exit(code)
       end
     end
 

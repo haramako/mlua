@@ -8,9 +8,25 @@ module Mlua
     alias to_s inspect
   end
 
-  class Closure < Struct.new(:func, :up_callinfo)
+  class Closure
+    attr_reader :func, :upvals
+    def initialize(func_)
+      @func = func_
+      @upvals = Array.new(@func.upvals.size)
+    end
     def inspect
-      "#<Closure #{func and func.line_start} #{up_callinfo}>"
+      "#<Closure #{func and func.line_start}>"
+    end
+    alias to_s inspect
+  end
+
+  class UpVal < Struct.new(:val, :idx, :is_open)
+    def inspect
+      if is_open then
+        "#<UpVal O #{idx}>"
+      else
+        "#<UpVal C #{val}>"
+      end
     end
     alias to_s inspect
   end
@@ -31,6 +47,8 @@ module Mlua
       
       @pc = 0
       @stack = []
+      @top = 0
+      @openupvals ||= []
       
       @env = Table.new
       @env['_ENV'] = @env
@@ -64,8 +82,13 @@ module Mlua
     
     def load_chunk(str, filename = nil)
       chunk = Chunk.new(str, filename)
-      @stack[0] = Closure.new(chunk.main, nil)
-      @ci = CallInfo.new(0, 0, 1, nil, 1)
+      cl = Closure.new(chunk.main)
+      cl.upvals[0] = UpVal.new(@env,0,false)
+      root_ci = CallInfo.new(0, 0, 1, nil, 1)
+      @ci = CallInfo.new(2, 2, 3, root_ci, 1)
+      @stack[0] = nil
+      @stack[1] = @env
+      @stack[2] = cl
     end
 
     def dump
@@ -97,34 +120,6 @@ module Mlua
       @stack[pos] = v
     end
 
-    def get_upval(upval_idx)
-      # MEMO: クロージャは未対応
-      instack, idx = @func.upvals[upval_idx]
-      if instack == 1
-        if @ci.prev == nil
-          @env
-        else
-          @stack[@ci.prev.base + idx]
-        end
-      else
-        @env
-      end
-    end
-
-    def set_upval(upval_idx, val)
-      # MEMO: クロージャは未対応
-      instack, idx = @func.upvals[upval_idx]
-      if instack == 1
-        if @ci.prev == nil
-          raise
-        else
-          @stack[@ci.prev.base + idx] = val
-        end
-      else
-        raise
-      end
-    end
-    
     def r(idx)
       if idx >= 0
         @stack[@ci.base+idx]
@@ -160,13 +155,145 @@ module Mlua
         from_size += 1
       end
     end
+
+    def kst(idx)
+      @func.consts[idx]
+    end
+
+    #def ra(inst)
+    #  r(Inst.op_a(inst))
+    #end
+
+    def rb(inst)
+      r(Inst.b(inst))
+    end
+    
+    def rc(inst)
+      r(Inst.c(inst))
+    end
+    
+    def rkb(inst)
+      rk(Inst.b(inst))
+    end
+
+    def rkc(inst)
+      rk(Inst.c(inst))
+    end
+
+    BINOP_METHOD = {
+      OP_ADD => :+,
+      OP_SUB => :-,
+      OP_MUL => :*,
+      OP_MOD => :%,
+      OP_POW => :**,
+      OP_DIV => :/,
+      OP_IDIV => :/,
+      OP_BAND => :&,
+      OP_BOR => :|,
+      OP_BXOR => :^,
+      OP_SHL => :<<,
+      OP_SHR => :>>,
+    }
+
+    def get_tbl(tbl, idx)
+      raise "invalid tbl #{tbl.class} with idx #{idx}" unless tbl.is_a? Table
+      tbl[idx]
+    end
+
+    def set_tbl(tbl, idx, val)
+      raise "invalid tbl #{tbl.class} with idx #{idx}" unless tbl.is_a? Table
+      tbl[idx] = val
+    end
+
+    def as_bool(v)
+      !!v
+    end
+    
+    #===============================================
+    # Closure/UpVal の制御
+    #===============================================
+
+    def tracep(*args)
+      if @trace
+        p args
+      end
+    end
+    
+    def new_closure(func, enc, base)
+      c = Closure.new(func)
+      func.upvals.each.with_index do |upval,i|
+        instack, idx = *upval
+        if instack != 0
+          c.upvals[i] = find_upval(base + idx)
+        else
+          c.upvals[i] = enc.upvals[idx]
+        end
+        if @trace
+          tracep :make_upval, i, instack, idx
+        end
+        check( c.upvals[i] )
+      end
+      tracep :open_upvals, @openupvals
+      c
+    end
+
+    def close_closure(idx)
+      @openupvals.reject! do |upval|
+        if upval.idx >= idx
+          upval.val = @stack[upval.idx]
+          upval.is_open = false
+          true
+        else
+          false
+        end
+      end
+    end
+
+    def find_upval(idx)
+      @openupvals.each do |upval|
+        if upval.idx == idx
+          return upval
+        end
+      end
+      new_upval = UpVal.new(nil, idx, true)
+      @openupvals << new_upval
+      new_upval
+    end
+
+    def check(v)
+      raise "validate error" unless v
+    end
+    
+    def get_upval(upval_idx)
+      c = @stack[@ci.func]
+      p [:get_upval, upval_idx, c.upvals[upval_idx]] if @trace
+      check( upval_idx >= 0 && upval_idx < c.upvals.size )
+      upval = c.upvals[upval_idx]
+      if upval.is_open
+        @stack[upval.idx]
+      else
+        upval.val
+      end
+    end
+
+    def set_upval(upval_idx, val)
+      c = @stack[@ci.func]
+      check( upval_idx >= 0 && upval_idx < c.upvals.size )
+      upval = c.upvals[upval_idx]
+      if upval.is_open
+        @stack[upval.idx] = val
+      else
+        upval.val = val
+      end
+    end
+    
+    #===============================================
+    # 実行
+    #===============================================
     
     # nativeコールならtrueを返す
     def precall(is_tailcall, func_idx, nargs, result_idx, nresults)
       func = @stack[func_idx]
-      if is_tailcall
-        p func
-      end
       case func
       when Method, Proc
         args = @stack[func_idx+1,nargs]
@@ -221,58 +348,10 @@ module Mlua
       end
     end
 
-    def kst(idx)
-      @func.consts[idx]
-    end
-
-    #def ra(inst)
-    #  r(Inst.op_a(inst))
-    #end
-
-    def rb(inst)
-      r(Inst.b(inst))
-    end
     
-    def rc(inst)
-      r(Inst.c(inst))
-    end
-    
-    def rkb(inst)
-      rk(Inst.b(inst))
-    end
-
-    def rkc(inst)
-      rk(Inst.c(inst))
-    end
-
-    BINOP_METHOD = {
-      OP_ADD => :+,
-      OP_SUB => :-,
-      OP_MUL => :*,
-      OP_MOD => :%,
-      OP_POW => :**,
-      OP_DIV => :/,
-      OP_IDIV => :/,
-      OP_BAND => :&,
-      OP_BOR => :|,
-      OP_BXOR => :^,
-      OP_SHL => :<<,
-      OP_SHR => :>>,
-    }
-
-    def get_tbl(tbl, idx)
-      raise "invalid tbl #{tbl.class}" unless tbl.is_a? Table
-      tbl[idx]
-    end
-
-    def set_tbl(tbl, idx, val)
-      raise "invalid tbl #{tbl.class}" unless tbl.is_a? Table
-      tbl[idx] = val
-    end
-
-    def as_bool(v)
-      !!v
-    end
+    #===============================================
+    # 実行
+    #===============================================
     
     def run
       step(-1)
@@ -292,6 +371,9 @@ module Mlua
     def step(count)
       @log = []
       while count != 0
+        if @stack[@ci.func] == nil
+          break
+        end
         @func = @stack[@ci.func].func
         i = @func.insts[@pc]
         opcode = Inst.opcode(i)
@@ -402,6 +484,8 @@ module Mlua
           @ci.saved_pc = @pc
           precall(false, ra, nargs, ra, nresults)
         when OP_TAILCALL
+          close_closure(@ci.base)
+          
           b = Inst.b(i)
           if b == 0
             nargs = @top - ra - 1
@@ -413,6 +497,8 @@ module Mlua
           @stack[old_ci.func, nargs+1] = @stack[ra, nargs+1]
           precall(true, old_ci.func, nargs, old_ci.result_idx, old_ci.nresults)
         when OP_RETURN
+          close_closure(@ci.base)
+          
           b = Inst.b(i)
           if @ci.prev.nil?
             break
@@ -443,11 +529,14 @@ module Mlua
           setobj2s(ra, r(a) - r(a+2))
           @pc += Inst.sbx(i)
         when OP_TFORCALL
+          # TFORCALL    A C        R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2))
+          # TFORLOOP    A sBx      if R(A+3) ~= nil then { R(A+2)=R(A+3); pc += sBx }
           nresult = Inst.c(i)
           precall(false, ra, 2, ra + 3, nresult)
         when OP_TFORLOOP
-          if r(ra+1) != nil
-            setobj2s(ra, r(ra+1))
+          if r(a+1) != nil
+            tracep :tforloop, r(a), r(a+1)
+            setobj2s(ra, r(a+1))
             @pc += Inst.sbx(i)
           end
         when OP_SETLIST
@@ -462,7 +551,8 @@ module Mlua
           end
         when OP_CLOSURE
           proto = @func.protos[Inst.bx(i)]
-          setobj2s(ra, Closure.new(proto, @ci))
+          c = @stack[@ci.func]
+          setobj2s(ra, new_closure(proto, c, @ci.base))
         when OP_VARARG
           b = Inst.b(i)
           n = @ci.base - @ci.func - 1
@@ -484,10 +574,12 @@ module Mlua
         end
         count -= 1
       end
-    rescue
+    rescue StandardError, Interrupt
       dump
       puts @log.last(20)
-      puts "#{@func.filename}:#{@func.debug_infos[@pc-1]}: error"
+      if @func
+        puts "#{@func.filename}:#{@func.debug_infos[@pc-1]}: error"
+      end
       cur_ci = @ci.prev
       while cur_ci
         f = @stack[cur_ci.func]
