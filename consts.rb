@@ -92,4 +92,22 @@ EOT
     OPCODE_TYPES.push optype.to_sym
   end
 
+  def self.csharp_code
+    puts "public enum OpCode {"
+    OPCODE_NAMES.each.with_index do |opname,i|
+      puts "  #{opname} = #{i},"
+    end
+    puts "}"
+    puts
+
+    puts "public class OpDatabase {"
+    puts "  public static readonly OpInfo[] Data = new OpInfo[]{"
+    OPCODE_TYPES.each_with_index do |optype,i|
+      opname = OPCODE_NAMES[i]
+      puts "    new OpInfo(\"#{opname}\", OpType.#{optype}),"
+    end
+    puts "  };"
+    puts "}"
+  end
+
 end

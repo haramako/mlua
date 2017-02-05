@@ -532,7 +532,7 @@ module Mlua
           # TFORCALL    A C        R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2))
           # TFORLOOP    A sBx      if R(A+3) ~= nil then { R(A+2)=R(A+3); pc += sBx }
           nresult = Inst.c(i)
-          precall(false, ra, 2, ra + 3, nresult)
+          precall(false, ra, 2, ra + 3, nresult - 1)
         when OP_TFORLOOP
           if r(a+1) != nil
             tracep :tforloop, r(a), r(a+1)
@@ -555,20 +555,14 @@ module Mlua
           setobj2s(ra, new_closure(proto, c, @ci.base))
         when OP_VARARG
           b = Inst.b(i)
-          n = @ci.base - @ci.func - 1
+          from_size = @ci.base - @ci.func - 1
           if b == 0
-            f = @stack[@ci.func]
-            n = @ci.base - @ci.func - 1
-            # n = 0 if n < 0
-            @stack[ra, n] = @stack[@ci.func+1,n]
-            @top = ra + n
+            to_size = from_size
           else
-            @stack[ra, b-1] = @stack[@ci.func+1,b-1]
-            if n < b-1
-              (n...b-1).each{|i| @stack[ra+i] = nil }
-            end
-            @top = ra + b - 1
+            to_size = b - 1
           end
+          copy_and_fill(@ci.func+1, from_size, ra, to_size)
+          @top = ra + to_size
         else
           raise "unknown opcode #{OPCODE_NAMES[opcode]}"
         end
