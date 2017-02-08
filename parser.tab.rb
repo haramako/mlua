@@ -298,7 +298,7 @@ racc_reduce_table = [
   7, 72, :_reduce_none,
   3, 72, :_reduce_none,
   4, 72, :_reduce_none,
-  3, 72, :_reduce_none,
+  3, 72, :_reduce_24,
   2, 85, :_reduce_none,
   0, 85, :_reduce_none,
   5, 83, :_reduce_none,
@@ -324,8 +324,8 @@ racc_reduce_table = [
   1, 77, :_reduce_none,
   4, 77, :_reduce_none,
   3, 77, :_reduce_none,
-  3, 86, :_reduce_none,
-  1, 86, :_reduce_none,
+  3, 86, :_reduce_50,
+  1, 86, :_reduce_51,
   1, 91, :_reduce_none,
   0, 91, :_reduce_none,
   3, 81, :_reduce_none,
@@ -666,7 +666,12 @@ module_eval(<<'.,.,', 'parser.y', 25)
 
 # reduce 23 omitted
 
-# reduce 24 omitted
+module_eval(<<'.,.,', 'parser.y', 45)
+  def _reduce_24(val, _values, result)
+     local_var(val[1], val[2]) 
+    result
+  end
+.,.,
 
 # reduce 25 omitted
 
@@ -718,9 +723,19 @@ module_eval(<<'.,.,', 'parser.y', 25)
 
 # reduce 49 omitted
 
-# reduce 50 omitted
+module_eval(<<'.,.,', 'parser.y', 85)
+  def _reduce_50(val, _values, result)
+     result = [*val[0], val[2]] 
+    result
+  end
+.,.,
 
-# reduce 51 omitted
+module_eval(<<'.,.,', 'parser.y', 86)
+  def _reduce_51(val, _values, result)
+     result = [val[0]] 
+    result
+  end
+.,.,
 
 # reduce 52 omitted
 

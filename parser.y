@@ -43,7 +43,7 @@ stat: varlist '=' explist
 	| 'for' namelist 'in' explist 'do' block 'end'
 	| 'function' funcname funcbody
 	| 'local' 'function' NAME funcbody
-	| 'local' namelist _eq_explist_opt
+    | 'local' namelist _eq_explist_opt { local_var(val[1], val[2]) }
 
 _comma_exp_opt: ',' exp
              |
@@ -83,8 +83,8 @@ var: NAME
    | prefixexp '[' exp ']'
    | prefixexp '.' NAME 
 
-namelist: namelist ',' NAME
-        | NAME 
+namelist: namelist ',' NAME { result = [*val[0], val[2]] }
+        | NAME { result = [val[0]] }
 
 _explist_opt: explist
             |

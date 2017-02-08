@@ -12,18 +12,19 @@ require_relative 'state'
 
 require 'pp'
 
+=begin
 ARGV.each do |file|
   lua = Mlua::State.new
   lua.load_file(file)
   lua.run
 end
+=end
 
-=begin
 begin
   parser = Mlua::Parser.new(IO.binread(ARGV[0]), ARGV[0])
-  parser.parse
+  chunk = parser.parse
+  pp chunk
 rescue Mlua::CompileError => err
   puts "#{err.filename}:#{err.line_no}:#{err}"
   raise
 end
-=end

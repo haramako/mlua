@@ -124,6 +124,18 @@ module Mlua
       super
     end
 
+
+    def local_var(namelist, num)
+      # p [:local_var, namelist, num]
+      namelist.each do |name|
+        emit(:OPMOVE, name)
+      end
+    end
+
+    def emit(op, *args)
+      puts [op, *args].join(', ')
+    end
+
   end
 
 end

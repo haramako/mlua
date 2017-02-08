@@ -2,6 +2,8 @@
 
 local x = {1,2,3,4}
 
+local y = 0
+
 for _,v in ipairs(x) do
    for _2,v2 in ipairs(x) do
 	  print(_,v,_2,v2)
